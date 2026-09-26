@@ -1,0 +1,184 @@
+@import "tailwindcss";
+
+/* ── Design tokens ───────────────────────────────────────────────────────── */
+
+@theme {
+  --color-space-950: #03040a;
+  --color-space-900: #070a14;
+  --color-space-800: #0c1020;
+  --color-space-700: #151b33;
+  --color-ink: #e9ecf5;
+  --color-ink-muted: #9aa3bd;
+  --color-ink-faint: #5d6680;
+  --color-nebula: #8f9dff;
+  --color-nebula-soft: #b9a8ff;
+  --color-starlight: #ffe9c2;
+
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+
+  --animate-fade-in: fade-in 0.5s var(--ease-out-expo) both;
+  --animate-card-in: card-in 0.45s var(--ease-out-expo) both;
+  --animate-sheet-in: sheet-in 0.45s var(--ease-out-expo) both;
+  --animate-pop-in: pop-in 0.22s var(--ease-out-expo) both;
+}
+
+@theme inline {
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes card-in {
+  from {
+    opacity: 0;
+    transform: translateX(12px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes sheet-in {
+  from {
+    opacity: 0;
+    transform: translateY(24px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes pop-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Translucent "glass" surface used by every floating panel. */
+@utility glass {
+  background-color: rgb(11 15 30 / 0.66);
+  backdrop-filter: blur(20px) saturate(140%);
+  -webkit-backdrop-filter: blur(20px) saturate(140%);
+  border: 1px solid rgb(255 255 255 / 0.08);
+  box-shadow:
+    0 16px 48px -16px rgb(0 0 0 / 0.75),
+    inset 0 1px 0 rgb(255 255 255 / 0.05);
+}
+
+@utility scrollbar-none {
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* ── Base ────────────────────────────────────────────────────────────────── */
+
+@layer base {
+  html {
+    color-scheme: dark;
+  }
+
+  body {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  ::selection {
+    background: rgb(143 157 255 / 0.35);
+  }
+
+  :focus-visible {
+    outline: 2px solid rgb(143 157 255 / 0.7);
+    outline-offset: 2px;
+  }
+
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: rgb(255 255 255 / 0.14) transparent;
+  }
+}
+
+/* ── Scene overlay (labels + hover preview are created imperatively) ─────── */
+
+@layer components {
+  .scene-overlay {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    pointer-events: none;
+    contain: strict;
+  }
+
+  .scene-label {
+    position: absolute;
+    left: 0;
+    top: 0;
+    white-space: nowrap;
+    font-family: var(--font-geist-mono), ui-monospace, monospace;
+    font-size: 11px;
+    line-height: 1;
+    letter-spacing: 0.01em;
+    color: rgb(233 236 245 / 0.82);
+    text-shadow:
+      0 0 6px rgb(3 4 10 / 0.95),
+      0 0 2px rgb(3 4 10 / 0.95);
+    will-change: transform, opacity;
+  }
+
+  .scene-label[data-emphasis="selected"] {
+    color: #fff;
+    font-weight: 600;
+  }
+
+  .scene-label[data-emphasis="highlight"] {
+    color: rgb(214 221 255 / 0.95);
+  }
+
+  .cluster-label {
+    position: absolute;
+    left: 0;
+    top: 0;
+    white-space: nowrap;
+    font-size: 10px;
+    line-height: 1;
+    font-weight: 500;
+    letter-spacing: 0.32em;
+    text-transform: uppercase;
+    color: rgb(214 221 255 / 0.5);
+    text-shadow: 0 0 8px rgb(3 4 10 / 0.95);
+    will-change: transform, opacity;
+  }
+
+  .hover-preview {
+    position: absolute;
+    left: 0;
+    top: 0;
+    min-width: 180px;
+    max-width: 280px;
+    padding: 8px 11px 9px;
+    border-radius: 10px;
+    background: rgb(10 13 27 / 0.82);
+    border: 1px solid rgb(255 255 255 / 0.09);
+    box-shadow: 0 10px 30px -10px rgb(0 0 0 / 0.8);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    opacity: 0;
+    transition: opacity 0.15s ease;
+    will-change: transform, opacity;
+  }
+}
