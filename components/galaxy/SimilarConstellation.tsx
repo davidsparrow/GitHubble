@@ -35,8 +35,8 @@ export function SimilarConstellation() {
     lineGeometry.setAttribute("aStrength", new THREE.BufferAttribute(new Float32Array(strengths.flatMap((s) => [s, s])), 1));
 
     ringGeometry.setAttribute("position", new THREE.BufferAttribute(new Float32Array(similar.flatMap((s) => at(s.index))), 3));
-    ringGeometry.setAttribute("aSize", new THREE.BufferAttribute(new Float32Array(similar.map((s) => buffers.baseSizes[s.index] * 1.15)), 1));
-    ringGeometry.setAttribute("aStrength", new THREE.BufferAttribute(new Float32Array(strengths.map((s) => s * 0.6)), 1));
+    ringGeometry.setAttribute("aSize", new THREE.BufferAttribute(new Float32Array(similar.map((s) => buffers.baseSizes[s.index])), 1));
+    ringGeometry.setAttribute("aStrength", new THREE.BufferAttribute(new Float32Array(strengths.map((s) => s * 0.45)), 1));
     return { lines: lineGeometry, rings: ringGeometry };
   }, [anchor, similar, buffers]);
 
@@ -70,7 +70,7 @@ export function SimilarConstellation() {
           uPixelRatio: { value: 1 },
           uViewportHeight: { value: 1 },
           uAppear: { value: 0 },
-          uPadding: { value: 7 },
+          uPadding: { value: 5 },
           uTime: { value: 0 },
           uTicks: { value: 0 },
           uColor: { value: LINE_COLOR },

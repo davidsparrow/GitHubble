@@ -23,7 +23,7 @@ const POOL_SIZE = 36;
 /** On-screen sprite diameter (px) an ordinary star needs before it earns a label. */
 const MIN_LABEL_SIZE = 17;
 const CHAR_WIDTH = 6.6;
-/** Neighborhood names: 10px uppercase with wide tracking. */
+/** Fallback width per character of a neighborhood name, before it can be measured. */
 const CLUSTER_CHAR_WIDTH = 9.6;
 const LABEL_HEIGHT = 13;
 const LABEL_GAP = 4;
@@ -45,7 +45,7 @@ type Preview = {
   height: number;
 };
 
-type Layer = { slots: Slot[]; clusters: HTMLDivElement[]; preview: Preview };
+type Layer = { slots: Slot[]; clusters: HTMLDivElement[]; clusterWidths: number[]; preview: Preview };
 
 function element<K extends keyof HTMLElementTagNameMap>(tag: K, className: string, parent?: HTMLElement) {
   const node = document.createElement(tag);
@@ -88,11 +88,25 @@ const smoothstep = (edge0: number, edge1: number, x: number) => {
 
 const scratch = new THREE.Vector3();
 
+/** Does the rectangle collide with any placed rectangle (flattened x0, y0, x1, y1 quadruples)? */
+function overlapsPlaced(placed: number[], x0: number, y0: number, x1: number, y1: number): boolean {
+  for (let p = 0; p < placed.length; p += 4) {
+    if (x0 < placed[p + 2] + LABEL_GAP && x1 + LABEL_GAP > placed[p] && y0 < placed[p + 3] + LABEL_GAP && y1 + LABEL_GAP > placed[p + 1]) {
+      return true;
+    }
+  }
+  return false;
+}
+
 export function SceneLabels() {
   const gl = useThree((s) => s.gl);
   const dataset = useGalaxyStore((s) => s.dataset);
   const buffers = useMemo(() => getStarBuffers(dataset), [dataset]);
   const layer = useRef<Layer | null>(null);
+  const clusterOrder = useMemo(
+    () => dataset.clusters.map((_, c) => c).sort((a, b) => dataset.clusters[b].count - dataset.clusters[a].count),
+    [dataset],
+  );
 
   const work = useMemo(
     () => ({
@@ -123,10 +137,17 @@ export function SceneLabels() {
       node.style.opacity = "0";
       return node;
     });
-    layer.current = { slots, clusters, preview: createPreview(root) };
+    const current: Layer = { slots, clusters, clusterWidths: clusters.map(() => 0), preview: createPreview(root) };
+    // Measure neighborhood names once the webfont has loaded (their size varies by breakpoint).
+    const measure = () => clusters.forEach((node, c) => (current.clusterWidths[c] = node.offsetWidth));
+    measure();
+    document.fonts?.ready.then(measure);
+    window.addEventListener("resize", measure);
+    layer.current = current;
     work.slotOf.fill(-1);
     work.alpha.fill(0);
     return () => {
+      window.removeEventListener("resize", measure);
       root.remove();
       layer.current = null;
     };
@@ -140,7 +161,9 @@ export function SceneLabels() {
     const { selectedIndex, hoveredIndex, similarAnchorIndex, searchMask } = useGalaxyStore.getState();
     const { alpha, wanted, slotOf, priority, candidates, placed, textWidth } = work;
     const fade = 1 - Math.exp(-Math.min(delta, 0.1) * 9);
-    const labelX = (i: number) => projection.x[i] + projection.size[i] * 0.22 + 7;
+    // The selected star's label steps outside its reticle (ring + ticks, see ringVertexShader).
+    const labelX = (i: number) =>
+      projection.x[i] + (i === selectedIndex ? projection.size[i] * 0.39 + 26 : projection.size[i] * 0.22 + 7);
     const labelY = (i: number) => projection.y[i] - LABEL_HEIGHT / 2;
 
     // 1. Candidates: prominent on screen, emphasized, or selected.
@@ -159,28 +182,36 @@ export function SceneLabels() {
     }
     candidates.sort((a, b) => priority[b] - priority[a]);
 
-    // 2. Neighborhood names guide you from afar and step aside up close.
-    //    They're laid out first and reserve their space.
+    // 2. Neighborhood names guide you from afar and step aside up close. They're
+    //    laid out first (largest neighborhoods win overlaps) and reserve their space.
     placed.length = 0;
     const reveal = revealProgress(frame.clock.elapsedTime);
     const context = similarAnchorIndex >= 0 ? 0.2 : searchMask ? 0.55 : 1;
-    dataset.clusters.forEach((cluster, c) => {
+    for (const c of clusterOrder) {
+      const cluster = dataset.clusters[c];
       const node = current.clusters[c];
       scratch.set(cluster.labelAnchor.x, cluster.labelAnchor.y, cluster.labelAnchor.z);
       const distance = frame.camera.position.distanceTo(scratch);
       scratch.project(frame.camera);
-      const inView = scratch.z < 1 && Math.abs(scratch.x) < 1.1 && Math.abs(scratch.y) < 1.1;
-      const target = inView ? smoothstep(45, 95, distance) * context * smoothstep(0.55, 1, reveal) : 0;
-      work.clusterAlpha[c] += (target - work.clusterAlpha[c]) * fade;
       const x = ((scratch.x + 1) / 2) * width;
       const y = ((1 - scratch.y) / 2) * height;
+      const halfWidth = (current.clusterWidths[c] || cluster.label.length * CLUSTER_CHAR_WIDTH) / 2;
+      const inView = scratch.z < 1 && x - halfWidth > 4 && x + halfWidth < width - 4 && y > HEADER_CLEARANCE && y < height - 8;
+      const clear = !overlapsPlaced(placed, x - halfWidth, y - 7, x + halfWidth, y + 7);
+      const target = inView && clear ? smoothstep(45, 95, distance) * context * smoothstep(0.55, 1, reveal) : 0;
+      work.clusterAlpha[c] += (target - work.clusterAlpha[c]) * fade;
       node.style.transform = `translate3d(${x.toFixed(1)}px, ${y.toFixed(1)}px, 0) translate(-50%, -50%)`;
       node.style.opacity = work.clusterAlpha[c].toFixed(3);
-      if (work.clusterAlpha[c] > 0.2) {
-        const halfWidth = (cluster.label.length * CLUSTER_CHAR_WIDTH) / 2;
-        placed.push(x - halfWidth, y - 7, x + halfWidth, y + 7);
-      }
-    });
+      if (target > 0) placed.push(x - halfWidth, y - 7, x + halfWidth, y + 7);
+    }
+
+    // The selection reticle is off limits to other labels.
+    if (selectedIndex >= 0 && projection.onScreen[selectedIndex]) {
+      const reach = projection.size[selectedIndex] * 0.39 + 22;
+      const x = projection.x[selectedIndex];
+      const y = projection.y[selectedIndex];
+      placed.push(x - reach, y - reach, x + reach, y + reach);
+    }
 
     // 3. Star labels: greedy placement without overlaps.
     wanted.fill(0);
@@ -192,14 +223,7 @@ export function SceneLabels() {
       const x1 = x0 + textWidth[i];
       const y1 = y0 + LABEL_HEIGHT;
       if (x1 > width - 4 || y0 < HEADER_CLEARANCE || y1 > height - 4) continue;
-      let overlaps = false;
-      for (let p = 0; p < placed.length; p += 4) {
-        if (x0 < placed[p + 2] + LABEL_GAP && x1 + LABEL_GAP > placed[p] && y0 < placed[p + 3] + LABEL_GAP && y1 + LABEL_GAP > placed[p + 1]) {
-          overlaps = true;
-          break;
-        }
-      }
-      if (overlaps) continue;
+      if (overlapsPlaced(placed, x0, y0, x1, y1)) continue;
       placed.push(x0, y0, x1, y1);
       wanted[i] = 1;
       accepted++;

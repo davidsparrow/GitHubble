@@ -6,6 +6,7 @@ import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import type { ViewMode } from "@/lib/types";
 import { useGalaxyStore, type CameraIntent } from "@/store/galaxyStore";
+import { TOP_CHROME_HEIGHT } from "../layoutMetrics";
 import { prefersReducedMotion } from "./sceneEnvironment";
 
 /*
@@ -22,8 +23,10 @@ import { prefersReducedMotion } from "./sceneEnvironment";
 
 export const TELESCOPE_FOV = 50;
 const ABOVE_FOV = 22;
-/** ~57° from straight down: an oblique, telescope-like vantage. */
+/** ~57° from straight down: an oblique, telescope-like vantage on wide screens… */
 const TELESCOPE_PHI = 1.0;
+/** …and a steeper one on tall screens, where a tilted disc would waste the height. */
+const TELESCOPE_PHI_PORTRAIT = 0.66;
 /** Straight down (OrbitControls needs to stay a hair off the pole). */
 const ABOVE_PHI = 0.0008;
 const HOME_THETA = 0.35;
@@ -31,6 +34,17 @@ const IDLE_DRIFT_AFTER_MS = 20_000;
 const MODE_SWITCH_MS = 1500;
 
 type Pose = { target: THREE.Vector3; halfHeight: number; phi: number; theta: number; fov: number };
+
+/**
+ * The part of the canvas the galaxy can actually use (not under the header,
+ * search suggestions or repository card): its aspect ratio, and how much taller
+ * the whole canvas is than that area.
+ */
+type Viewport = { aspect: number; scale: number };
+
+function telescopePhi(aspect: number): number {
+  return THREE.MathUtils.lerp(TELESCOPE_PHI_PORTRAIT, TELESCOPE_PHI, THREE.MathUtils.clamp((aspect - 0.55) / 0.65, 0, 1));
+}
 
 type Tween = {
   from: Pose;
@@ -98,43 +112,47 @@ function resetMomentum(controls: OrbitControls) {
   if (typeof internals._scale === "number") internals._scale = 1;
 }
 
-/** The whole galaxy, framed for a view and an aspect ratio. */
-function overviewPose(mode: ViewMode, aspect: number, extent: number, theta: number): Pose {
+/** The whole galaxy, framed for a view and the free viewport. */
+function overviewPose(mode: ViewMode, viewport: Viewport, extent: number, theta: number): Pose {
   const radius = extent + 10;
+  const { aspect, scale } = viewport;
   if (mode === "above") {
     return {
       target: new THREE.Vector3(),
-      halfHeight: Math.max(radius, radius / aspect) * 1.04,
+      halfHeight: Math.max(radius, radius / aspect) * 1.04 * scale,
       phi: ABOVE_PHI,
       theta,
       fov: ABOVE_FOV,
     };
   }
-  // Perspective makes the near half of the disc loom larger, so aim a little
-  // towards the viewer to keep the whole spiral in frame.
+  // A tilted disc is ~cos(phi) as tall as it is wide. Perspective makes the near
+  // half loom larger, so also aim a little towards the viewer. Tall screens let
+  // the outermost arms run slightly off the sides rather than shrink the galaxy.
+  const phi = telescopePhi(aspect);
+  const widthFit = THREE.MathUtils.lerp(0.92, 1.1, THREE.MathUtils.clamp((aspect - 0.5) / 0.7, 0, 1));
   return {
-    target: new THREE.Vector3(Math.sin(theta), 0, Math.cos(theta)).multiplyScalar(radius * 0.08),
-    halfHeight: Math.max(radius * 0.8, (radius * 1.1) / aspect),
-    phi: TELESCOPE_PHI,
+    target: new THREE.Vector3(Math.sin(theta), 0, Math.cos(theta)).multiplyScalar(radius * 0.14),
+    halfHeight: Math.max(radius * (0.36 + 0.8 * Math.cos(phi)), (radius * widthFit) / aspect) * scale,
+    phi,
     theta,
     fov: TELESCOPE_FOV,
   };
 }
 
-function distanceLimits(mode: ViewMode, aspect: number, extent: number) {
-  const overview = overviewPose(mode, aspect, extent, 0);
+function distanceLimits(mode: ViewMode, viewport: Viewport, extent: number) {
+  const overview = overviewPose(mode, viewport, extent, 0);
   const overviewDistance = overview.halfHeight / tanHalf(overview.fov);
   return mode === "telescope" ? { min: 5, max: overviewDistance * 2.4 } : { min: 45, max: overviewDistance * 1.6 };
 }
 
-function constrainPose(pose: Pose, mode: ViewMode, aspect: number, extent: number): Pose {
-  const { min, max } = distanceLimits(mode, aspect, extent);
+function constrainPose(pose: Pose, mode: ViewMode, viewport: Viewport, extent: number): Pose {
+  const { min, max } = distanceLimits(mode, viewport, extent);
   const scale = tanHalf(pose.fov);
   return { ...pose, halfHeight: THREE.MathUtils.clamp(pose.halfHeight, min * scale, max * scale) };
 }
 
-function configureControls(controls: OrbitControls, mode: ViewMode, aspect: number, extent: number) {
-  const { min, max } = distanceLimits(mode, aspect, extent);
+function configureControls(controls: OrbitControls, mode: ViewMode, viewport: Viewport, extent: number) {
+  const { min, max } = distanceLimits(mode, viewport, extent);
   controls.minDistance = min;
   controls.maxDistance = max;
   if (mode === "telescope") {
@@ -167,18 +185,19 @@ export function GalaxyCamera() {
   const viewOffset = useRef({ x: 0, y: 0 });
   const lastInteraction = useRef(0);
 
-  // Aspect ratio of the area not covered by the repository card.
-  const freeAspect = () => {
+  const freeViewport = (): Viewport => {
     const { size } = get();
-    const inset = useGalaxyStore.getState().cardInset;
-    return Math.max(0.2, (size.width - inset.right) / Math.max(1, size.height - inset.bottom));
+    const { cardInset, searchInset } = useGalaxyStore.getState();
+    const freeWidth = Math.max(1, size.width - cardInset.right);
+    const freeHeight = Math.max(80, size.height - TOP_CHROME_HEIGHT - searchInset - cardInset.bottom);
+    return { aspect: Math.max(0.2, freeWidth / freeHeight), scale: size.height / freeHeight };
   };
 
   const finishTween = () => {
     const controls = controlsRef.current;
     tweenRef.current = null;
     if (!controls) return;
-    configureControls(controls, useGalaxyStore.getState().viewMode, freeAspect(), extent);
+    configureControls(controls, useGalaxyStore.getState().viewMode, freeViewport(), extent);
     controls.enabled = true;
     resetMomentum(controls);
     controls.update();
@@ -221,10 +240,9 @@ export function GalaxyCamera() {
     controlsRef.current = controls;
     lastInteraction.current = performance.now();
 
-    const { size } = get();
-    const aspect = size.width / Math.max(1, size.height);
-    configureControls(controls, "telescope", aspect, extent);
-    const home = overviewPose("telescope", aspect, extent, HOME_THETA);
+    const viewport = freeViewport();
+    configureControls(controls, "telescope", viewport, extent);
+    const home = overviewPose("telescope", viewport, extent, HOME_THETA);
     if (prefersReducedMotion()) {
       applyPose(camera, controls, home);
       controls.update();
@@ -258,8 +276,9 @@ export function GalaxyCamera() {
   useEffect(() => {
     const controls = controlsRef.current;
     if (controls && !tweenRef.current) {
-      configureControls(controls, useGalaxyStore.getState().viewMode, width / Math.max(1, height), extent);
+      configureControls(controls, useGalaxyStore.getState().viewMode, freeViewport(), extent);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [width, height, extent]);
 
   // React to view switches and camera intents from the UI.
@@ -269,12 +288,12 @@ export function GalaxyCamera() {
       if (!controls) return;
       const { repositories } = useGalaxyStore.getState().dataset;
       const current = readPose(camera, controls.target);
-      const aspect = freeAspect();
+      const viewport = freeViewport();
       const fov = mode === "telescope" ? TELESCOPE_FOV : ABOVE_FOV;
       const phi = (lo: number, hi: number) => (mode === "telescope" ? THREE.MathUtils.clamp(current.phi, lo, hi) : ABOVE_PHI);
 
       if (intent.kind === "overview") {
-        startTween(overviewPose(mode, aspect, extent, current.theta));
+        startTween(overviewPose(mode, viewport, extent, current.theta));
         return;
       }
 
@@ -288,7 +307,7 @@ export function GalaxyCamera() {
           constrainPose(
             { target: new THREE.Vector3(repo.x, repo.y, repo.z), halfHeight, phi: phi(0.6, 1.3), theta: current.theta, fov },
             mode,
-            aspect,
+            viewport,
             extent,
           ),
         );
@@ -302,19 +321,22 @@ export function GalaxyCamera() {
         points.reduce((sum, r) => sum + r.z, 0) / points.length,
       );
       const radius = points.reduce((max, r) => Math.max(max, center.distanceTo(new THREE.Vector3(r.x, r.y, r.z))), 0) + 6;
-      const halfHeight = Math.max(mode === "telescope" ? 12 : 25, radius * 1.15 * Math.max(1, 1 / aspect));
-      startTween(constrainPose({ target: center, halfHeight, phi: phi(0.75, 1.15), theta: current.theta, fov }, mode, aspect, extent));
+      const halfHeight = Math.max(mode === "telescope" ? 12 : 25, radius * 1.15 * Math.max(1, 1 / viewport.aspect) * viewport.scale);
+      startTween(constrainPose({ target: center, halfHeight, phi: phi(0.75, 1.15), theta: current.theta, fov }, mode, viewport, extent));
     };
 
     const onViewMode = (mode: ViewMode) => {
       const controls = controlsRef.current;
       if (!controls) return;
       const current = readPose(camera, controls.target);
+      const viewport = freeViewport();
+      // Looking down shows a little more context than the telescope did, up to the whole map.
+      const map = overviewPose("above", viewport, extent, current.theta);
       const destination: Pose =
         mode === "above"
-          ? { ...current, halfHeight: Math.max(current.halfHeight, 30), phi: ABOVE_PHI, fov: ABOVE_FOV }
-          : { ...current, phi: TELESCOPE_PHI, fov: TELESCOPE_FOV };
-      startTween(constrainPose(destination, mode, freeAspect(), extent), { duration: MODE_SWITCH_MS, interruptible: false });
+          ? { ...current, halfHeight: Math.min(Math.max(current.halfHeight * 1.3, 30), map.halfHeight), phi: ABOVE_PHI, fov: ABOVE_FOV }
+          : { ...current, phi: telescopePhi(viewport.aspect), fov: TELESCOPE_FOV };
+      startTween(constrainPose(destination, mode, viewport, extent), { duration: MODE_SWITCH_MS, interruptible: false });
     };
 
     return useGalaxyStore.subscribe((state, prev) => {
@@ -346,20 +368,15 @@ export function GalaxyCamera() {
     }
 
     // Shift the projection so the point of interest sits in the middle of the
-    // area the repository card leaves free (right panel on desktop, sheet on mobile).
-    const inset = useGalaxyStore.getState().cardInset;
+    // free viewport: below the header and any open search suggestions, beside
+    // the repository card (desktop) or above the bottom sheet (mobile).
+    const { cardInset, searchInset } = useGalaxyStore.getState();
     const offset = viewOffset.current;
     const k = 1 - Math.exp(-Math.min(delta, 0.1) * 5);
-    offset.x += (inset.right / 2 - offset.x) * k;
-    offset.y += (inset.bottom / 2 - offset.y) * k;
-    if (inset.right === 0 && inset.bottom === 0 && Math.abs(offset.x) < 0.25 && Math.abs(offset.y) < 0.25) {
-      offset.x = 0;
-      offset.y = 0;
-      if (camera.view?.enabled) camera.clearViewOffset();
-    } else {
-      const { width: w, height: h } = state.size;
-      camera.setViewOffset(w, h, offset.x, offset.y, w, h);
-    }
+    offset.x += (cardInset.right / 2 - offset.x) * k;
+    offset.y += ((cardInset.bottom - TOP_CHROME_HEIGHT - searchInset) / 2 - offset.y) * k;
+    const { width: w, height: h } = state.size;
+    camera.setViewOffset(w, h, offset.x, offset.y, w, h);
 
     camera.updateMatrixWorld();
   }, -2);

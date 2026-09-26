@@ -39,6 +39,8 @@ type GalaxyState = {
   cameraIntent: CameraIntent | null;
   /** Screen area covered by the repository card, so the camera can keep the selection in view. */
   cardInset: { right: number; bottom: number };
+  /** Height of the open search suggestions below the header; results are framed beneath it. */
+  searchInset: number;
 
   setViewMode: (mode: ViewMode) => void;
   toggleViewMode: () => void;
@@ -46,6 +48,7 @@ type GalaxyState = {
   frameResults: () => void;
   toggleFilter: (key: FilterKey, value: string) => void;
   clearFilter: (key: FilterKey) => void;
+  clearFilters: () => void;
   clearSearchAndFilters: () => void;
   select: (index: number, focus?: FocusStyle) => void;
   hover: (index: number) => void;
@@ -53,6 +56,7 @@ type GalaxyState = {
   exitSimilar: () => void;
   resetView: () => void;
   setCardInset: (inset: { right: number; bottom: number }) => void;
+  setSearchInset: (inset: number) => void;
 };
 
 let nonce = 0;
@@ -106,6 +110,7 @@ export const useGalaxyStore = create<GalaxyState>()((set, get) => {
     similar: [],
     cameraIntent: null,
     cardInset: { right: 0, bottom: 0 },
+    searchInset: 0,
 
     setViewMode: (viewMode) => set({ viewMode }),
     toggleViewMode: () => set({ viewMode: get().viewMode === "telescope" ? "above" : "telescope" }),
@@ -126,6 +131,7 @@ export const useGalaxyStore = create<GalaxyState>()((set, get) => {
 
     toggleFilter: (key, value) => applyFilters({ ...get().filters, [key]: toggleValue(get().filters[key], value) }),
     clearFilter: (key) => applyFilters({ ...get().filters, [key]: [] }),
+    clearFilters: () => applyFilters(EMPTY_FILTERS),
 
     clearSearchAndFilters: () => {
       get().setQuery("");
@@ -167,6 +173,10 @@ export const useGalaxyStore = create<GalaxyState>()((set, get) => {
     setCardInset: (cardInset) => {
       const current = get().cardInset;
       if (current.right !== cardInset.right || current.bottom !== cardInset.bottom) set({ cardInset });
+    },
+
+    setSearchInset: (searchInset) => {
+      if (get().searchInset !== searchInset) set({ searchInset });
     },
   };
 });
