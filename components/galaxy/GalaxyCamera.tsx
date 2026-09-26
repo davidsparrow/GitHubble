@@ -320,9 +320,23 @@ export function GalaxyCamera() {
         points.reduce((sum, r) => sum + r.y, 0) / points.length,
         points.reduce((sum, r) => sum + r.z, 0) / points.length,
       );
-      const radius = points.reduce((max, r) => Math.max(max, center.distanceTo(new THREE.Vector3(r.x, r.y, r.z))), 0) + 6;
+      if (intent.anchor !== undefined) {
+        // Show Similar: keep the anchor near the middle of its neighborhood.
+        const anchor = repositories[intent.anchor];
+        center.lerp(new THREE.Vector3(anchor.x, anchor.y, anchor.z), 0.5);
+      }
+      const distances = points.map((r) => center.distanceTo(new THREE.Vector3(r.x, r.y, r.z))).sort((a, b) => a - b);
+      const farthest = distances[distances.length - 1];
+      // Show Similar zooms to the heart of the neighborhood (outliers may sit at the
+      // edge, their constellation lines leading to them); other sets fit entirely.
+      const radius =
+        (intent.anchor !== undefined
+          ? Math.max(farthest * 0.6, distances[Math.floor((distances.length - 1) * 0.75)])
+          : farthest) + 6;
       const halfHeight = Math.max(mode === "telescope" ? 12 : 25, radius * 1.15 * Math.max(1, 1 / viewport.aspect) * viewport.scale);
-      startTween(constrainPose({ target: center, halfHeight, phi: phi(0.75, 1.15), theta: current.theta, fov }, mode, viewport, extent));
+      // A neighborhood reads best from higher up, where it spreads across the screen rather than into depth.
+      const tilt = intent.anchor !== undefined ? phi(0.5, 0.8) : phi(0.75, 1.15);
+      startTween(constrainPose({ target: center, halfHeight, phi: tilt, theta: current.theta, fov }, mode, viewport, extent));
     };
 
     const onViewMode = (mode: ViewMode) => {

@@ -9,7 +9,7 @@ export function Legend() {
   const viewMode = useGalaxyStore((s) => s.viewMode);
 
   return (
-    <div className="pointer-events-none absolute bottom-5 left-5 z-10 hidden md:block">
+    <div className="pointer-events-none absolute bottom-5 left-5 z-10 hidden lg:block">
       <div className="glass w-[252px] rounded-xl px-4 pb-3 pt-3.5">
         <p className="text-[10.5px] font-medium uppercase tracking-[0.2em] text-ink-muted">Every star is a repository</p>
         <div className="mt-2 flex items-end justify-between">

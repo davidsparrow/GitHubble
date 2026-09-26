@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { computeFilterMask, EMPTY_FILTERS, toggleValue, type FilterKey, type Filters } from "@/lib/filters";
-import { getSampleDataset, type GalaxyDataset } from "@/lib/repositoryData";
+import { loadInitialDataset, type GalaxyDataset } from "@/lib/repositoryData";
 import { computeSearchMask, tokenize } from "@/lib/search";
 import { findSimilar, type SimilarRepository } from "@/lib/similarity";
 import type { ViewMode } from "@/lib/types";
@@ -12,7 +12,7 @@ import type { ViewMode } from "@/lib/types";
  */
 export type CameraIntent =
   | { kind: "focus"; index: number; style: "fly" | "center"; nonce: number }
-  | { kind: "frame"; indices: number[]; nonce: number }
+  | { kind: "frame"; indices: number[]; /** Keep this one near the middle. */ anchor?: number; nonce: number }
   | { kind: "overview"; nonce: number };
 
 export type FocusStyle = "fly" | "center" | "none";
@@ -94,7 +94,7 @@ export const useGalaxyStore = create<GalaxyState>()((set, get) => {
     });
   };
 
-  const dataset = getSampleDataset();
+  const dataset = loadInitialDataset();
 
   return {
     dataset,
@@ -156,7 +156,7 @@ export const useGalaxyStore = create<GalaxyState>()((set, get) => {
         similarAnchorIndex: index,
         selectedIndex: index,
         similar,
-        cameraIntent: { kind: "frame", indices: [index, ...similar.map((s) => s.index)], nonce: ++nonce },
+        cameraIntent: { kind: "frame", indices: [index, ...similar.map((s) => s.index)], anchor: index, nonce: ++nonce },
       });
     },
 

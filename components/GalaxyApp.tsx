@@ -34,11 +34,14 @@ export default function GalaxyApp() {
 
 function DatasetNote() {
   const count = useGalaxyStore((s) => s.dataset.repositories.length);
+  const source = useGalaxyStore((s) => s.dataset.source);
   const cardOpen = useGalaxyStore((s) => s.selectedIndex >= 0);
   if (cardOpen) return null;
   return (
-    <p className="pointer-events-none absolute bottom-5 right-5 z-10 hidden font-mono text-[10.5px] text-ink-faint md:block">
-      Sample universe · {count} repositories · approximate star counts
+    <p className="pointer-events-none absolute bottom-5 right-5 z-10 hidden font-mono text-[10.5px] text-ink-faint xl:block">
+      {source === "synthetic"
+        ? `Synthetic stress-test universe · ${count.toLocaleString("en-US")} repositories`
+        : `Sample universe · ${count} repositories · approximate star counts`}
     </p>
   );
 }

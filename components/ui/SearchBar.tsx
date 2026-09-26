@@ -35,11 +35,14 @@ export function SearchBar() {
     [dataset, query, filterMask],
   );
 
+  const frameTimer = useRef<number | undefined>(undefined);
   useEffect(() => {
     if (!hasQuery) return;
-    const timer = window.setTimeout(frameResults, FRAME_DELAY_MS);
-    return () => window.clearTimeout(timer);
+    frameTimer.current = window.setTimeout(frameResults, FRAME_DELAY_MS);
+    return () => window.clearTimeout(frameTimer.current);
   }, [query, hasQuery, frameResults]);
+  // An explicit choice (a suggestion, or Enter) wins over the pending auto-frame.
+  const cancelAutoFrame = () => window.clearTimeout(frameTimer.current);
 
   const showPanel = open && hasQuery;
 
@@ -62,6 +65,7 @@ export function SearchBar() {
   }, [showPanel]);
 
   const choose = (index: number) => {
+    cancelAutoFrame();
     select(index, "fly");
     setOpen(false);
     inputRef.current?.blur();
@@ -84,6 +88,7 @@ export function SearchBar() {
       event.preventDefault();
       if (active >= 0 && suggestions[active]) choose(suggestions[active].index);
       else {
+        cancelAutoFrame();
         frameResults();
         setOpen(false);
       }

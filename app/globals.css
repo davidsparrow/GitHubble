@@ -16,10 +16,12 @@
 
   --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
 
-  --animate-fade-in: fade-in 0.5s var(--ease-out-expo) both;
-  --animate-card-in: card-in 0.45s var(--ease-out-expo) both;
-  --animate-sheet-in: sheet-in 0.45s var(--ease-out-expo) both;
-  --animate-pop-in: pop-in 0.22s var(--ease-out-expo) both;
+  /* "backwards" (not "both") so finished animations don't pin transforms that
+     gestures later set inline, e.g. dragging the bottom sheet. */
+  --animate-fade-in: fade-in 0.5s var(--ease-out-expo) backwards;
+  --animate-card-in: card-in 0.45s var(--ease-out-expo) backwards;
+  --animate-sheet-in: sheet-in 0.45s var(--ease-out-expo) backwards;
+  --animate-pop-in: pop-in 0.22s var(--ease-out-expo) backwards;
 }
 
 @theme inline {
@@ -121,6 +123,16 @@
   * {
     scrollbar-width: thin;
     scrollbar-color: rgb(255 255 255 / 0.14) transparent;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    ::before,
+    ::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
   }
 }
 

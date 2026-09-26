@@ -169,35 +169,60 @@ function sortByAffinity(items: readonly LayoutItem[], group: number[]): number[]
   );
 }
 
-/** Pushes overlapping stars apart; larger stars claim more personal space. */
+/**
+ * Pushes overlapping stars apart; larger stars claim more personal space.
+ * Neighbors are found through a planar grid (the disc is thin), so each pass
+ * is ~O(n) rather than O(n²) and large imports stay fast.
+ */
 function relax(items: readonly LayoutItem[], indices: number[], positions: Vec3[]) {
-  const personalSpace = indices.map((i) => 0.7 + 1.1 * starMagnitude(items[i].stars));
+  const personalSpace = indices.map((i) => 0.9 + 1.4 * starMagnitude(items[i].stars));
+  const cellSize = 2 * Math.max(...personalSpace);
+  const cellKey = (cx: number, cz: number) => (cx + 32768) * 65536 + (cz + 32768);
+  const grid = new Map<number, number[]>();
+
   for (let iteration = 0; iteration < RELAX_ITERATIONS; iteration++) {
+    grid.clear();
+    indices.forEach((i, a) => {
+      const key = cellKey(Math.floor(positions[i].x / cellSize), Math.floor(positions[i].z / cellSize));
+      const bucket = grid.get(key);
+      if (bucket) bucket.push(a);
+      else grid.set(key, [a]);
+    });
+
     let moved = false;
     for (let a = 0; a < indices.length; a++) {
-      for (let b = a + 1; b < indices.length; b++) {
-        const pa = positions[indices[a]];
-        const pb = positions[indices[b]];
-        let dx = pb.x - pa.x;
-        let dy = pb.y - pa.y;
-        let dz = pb.z - pa.z;
-        let distance = Math.hypot(dx, dy, dz);
-        const minimum = personalSpace[a] + personalSpace[b];
-        if (distance >= minimum) continue;
-        if (distance < 1e-6) {
-          dx = 0.01 * (b - a);
-          dy = 0;
-          dz = 0.01;
-          distance = Math.hypot(dx, dz);
+      const pa = positions[indices[a]];
+      const cx = Math.floor(pa.x / cellSize);
+      const cz = Math.floor(pa.z / cellSize);
+      for (let ox = -1; ox <= 1; ox++) {
+        for (let oz = -1; oz <= 1; oz++) {
+          const bucket = grid.get(cellKey(cx + ox, cz + oz));
+          if (!bucket) continue;
+          for (const b of bucket) {
+            if (b <= a) continue;
+            const pb = positions[indices[b]];
+            let dx = pb.x - pa.x;
+            let dy = pb.y - pa.y;
+            let dz = pb.z - pa.z;
+            let distance = Math.hypot(dx, dy, dz);
+            const minimum = personalSpace[a] + personalSpace[b];
+            if (distance >= minimum) continue;
+            if (distance < 1e-6) {
+              dx = 0.01 * (b - a);
+              dy = 0;
+              dz = 0.01;
+              distance = Math.hypot(dx, dz);
+            }
+            const push = (minimum - distance) / (2 * distance);
+            pa.x -= dx * push;
+            pa.y -= dy * push * 0.3;
+            pa.z -= dz * push;
+            pb.x += dx * push;
+            pb.y += dy * push * 0.3;
+            pb.z += dz * push;
+            moved = true;
+          }
         }
-        const push = (minimum - distance) / (2 * distance);
-        pa.x -= dx * push;
-        pa.y -= dy * push * 0.3;
-        pa.z -= dz * push;
-        pb.x += dx * push;
-        pb.y += dy * push * 0.3;
-        pb.z += dz * push;
-        moved = true;
       }
     }
     if (!moved) break;

@@ -22,6 +22,7 @@ export function RepositoryCard() {
   const exitSimilar = useGalaxyStore((s) => s.exitSimilar);
   const isMobile = useMediaQuery(MOBILE_QUERY);
   const cardRef = useRef<HTMLElement>(null);
+  const drag = useRef<{ startY: number; offset: number } | null>(null);
   const open = selectedIndex >= 0;
 
   useLayoutEffect(() => {
@@ -50,6 +51,31 @@ export function RepositoryCard() {
     };
   }, [open, isMobile]);
 
+  // Phones: drag the sheet's handle down to dismiss it.
+  const onHandleDown = (event: React.PointerEvent<HTMLDivElement>) => {
+    event.currentTarget.setPointerCapture(event.pointerId);
+    drag.current = { startY: event.clientY, offset: 0 };
+    if (cardRef.current) cardRef.current.style.transition = "none";
+  };
+  const onHandleMove = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (!drag.current || !cardRef.current) return;
+    drag.current.offset = Math.max(0, event.clientY - drag.current.startY);
+    cardRef.current.style.transform = `translateY(${drag.current.offset}px)`;
+  };
+  const onHandleUp = () => {
+    const card = cardRef.current;
+    const offset = drag.current?.offset ?? 0;
+    drag.current = null;
+    if (!card) return;
+    card.style.transition = "transform 0.25s cubic-bezier(0.16, 1, 0.3, 1)";
+    if (offset > 90) {
+      card.style.transform = "translateY(100%)";
+      window.setTimeout(() => select(-1), 200);
+    } else {
+      card.style.transform = "";
+    }
+  };
+
   if (!open) return null;
 
   const repo = dataset.repositories[selectedIndex];
@@ -67,8 +93,17 @@ export function RepositoryCard() {
         "md:right-4 md:top-[108px] md:max-h-[calc(100dvh-128px)] md:w-[360px] md:animate-card-in md:rounded-2xl",
       )}
     >
-      <div aria-hidden className="mx-auto mt-2 h-1 w-9 shrink-0 rounded-full bg-white/20 md:hidden" />
-      <div className="overflow-y-auto overscroll-contain px-5 pb-5 pt-3 md:pt-5">
+      <div
+        aria-hidden
+        onPointerDown={onHandleDown}
+        onPointerMove={onHandleMove}
+        onPointerUp={onHandleUp}
+        onPointerCancel={onHandleUp}
+        className="flex h-6 shrink-0 cursor-grab touch-none items-end justify-center md:hidden"
+      >
+        <span className="h-1 w-9 rounded-full bg-white/25" />
+      </div>
+      <div className="overflow-y-auto overscroll-contain px-5 pb-5 pt-2 md:pt-5">
         <div className="flex items-start gap-3">
           <div className="min-w-0 flex-1">
             <p className="flex items-center gap-2 text-[10.5px] font-medium uppercase tracking-[0.2em] text-ink-muted">

@@ -1,4 +1,5 @@
 import { SAMPLE_REPOSITORY_SEEDS, type RepositorySeed } from "./data/sampleRepositories";
+import { syntheticSeeds } from "./data/syntheticRepositories";
 import { facetValues, type FilterKey } from "./filters";
 import { layoutGalaxy, summarizeClusters, type ClusterSummary } from "./galaxyLayout";
 import { createRandom, hashString } from "./random";
@@ -37,6 +38,8 @@ export function buildRepositories(seeds: readonly RepositorySeed[]): Repository[
 
 /** Everything the app derives once from a set of repositories. */
 export type GalaxyDataset = {
+  /** Where the repositories came from. */
+  source: "sample" | "synthetic";
   repositories: Repository[];
   indexById: Map<string, number>;
   /** Ordinal of each repository's cluster in CLUSTER_IDS (compact, for per-star loops). */
@@ -50,8 +53,9 @@ export type GalaxyDataset = {
   extent: number;
 };
 
-export function createDataset(repositories: Repository[]): GalaxyDataset {
+export function createDataset(repositories: Repository[], source: GalaxyDataset["source"] = "sample"): GalaxyDataset {
   return {
+    source,
     repositories,
     indexById: new Map(repositories.map((repo, i) => [repo.id, i])),
     clusterIndex: Uint8Array.from(repositories, (repo) => CLUSTER_IDS.indexOf(repo.clusterId)),
@@ -73,4 +77,17 @@ let sampleDataset: GalaxyDataset | null = null;
 export function getSampleDataset(): GalaxyDataset {
   sampleDataset ??= createDataset(buildRepositories(SAMPLE_REPOSITORY_SEEDS));
   return sampleDataset;
+}
+
+const MAX_STRESS_REPOSITORIES = 50_000;
+
+/**
+ * The dataset the app starts with: the sample universe, or a synthetic one of
+ * N repositories when the page is opened with `?stress=N` (performance testing).
+ */
+export function loadInitialDataset(): GalaxyDataset {
+  const requested = typeof window === "undefined" ? 0 : Number(new URLSearchParams(window.location.search).get("stress"));
+  if (!Number.isFinite(requested) || requested <= SAMPLE_REPOSITORY_SEEDS.length) return getSampleDataset();
+  const count = Math.min(Math.floor(requested), MAX_STRESS_REPOSITORIES);
+  return createDataset(buildRepositories(syntheticSeeds(SAMPLE_REPOSITORY_SEEDS, count)), "synthetic");
 }
