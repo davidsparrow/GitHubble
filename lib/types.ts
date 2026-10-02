@@ -17,8 +17,10 @@ export type Repository = {
   z: number;
   clusterId: ClusterId;
   githubUrl: string;
-  /** ISO-8601 timestamp of the last update on GitHub. */
+  /** ISO-8601 timestamp of the last push on GitHub. */
   updatedAt: string;
+  /** The project's own website, when it has one. */
+  homepageUrl?: string;
 };
 
 export type ViewMode = "telescope" | "above";

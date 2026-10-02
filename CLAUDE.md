@@ -3,13 +3,16 @@
 # GitHubble
 
 Visual discovery interface for GitHub repositories: each repository is a star in a navigable
-galaxy. Phase 1 (sample data, no backend) is complete; see README.md for the roadmap.
+galaxy. Phase 1 (visual prototype) is complete; Phase 2 (importer + Supabase + /api/galaxy) is
+built. See README.md for setup and the roadmap.
 
 ## Commands
 
 - `npm run dev`: dev server (append `?stress=10000` to the URL for a synthetic 10k universe)
 - `npm run typecheck`, `npm run lint`, `npm test`: run all three before committing
 - `npm run build`: production build
+- `npm run import`: GitHub → Claude classification → layout → Supabase (`--dry-run`, `--heuristic`)
+- `npm run db:push`: apply `supabase/migrations` (needs SUPABASE_DB_URL)
 
 ## Architecture rules
 
@@ -26,3 +29,9 @@ galaxy. Phase 1 (sample data, no backend) is complete; see README.md for the roa
 - Shaders write sRGB colors directly (premultiplied additive blending); parse colors with
   `hexToRgb`, not `THREE.Color`, to avoid color-management conversion.
 - Coordinates: `x`/`z` are the galactic plane, `y` is height above it.
+- Data: the importer computes coordinates once; the app never runs layout for live data.
+  `server/env.ts` is shared with the scripts, so it must not import `server-only`.
+- Secrets: only the Supabase anon/publishable key is used at runtime. The service-role key,
+  GITHUB_TOKEN and ANTHROPIC_API_KEY stay in `.env.local` for the importer; never print them.
+- Taxonomy changes need a migration: the SQL CHECK constraints mirror `lib/taxonomy.ts` (a test
+  enforces this), and bumping `CLASSIFICATION_VERSION` re-classifies cached repositories.

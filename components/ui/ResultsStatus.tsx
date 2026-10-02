@@ -26,7 +26,8 @@ export function ResultsStatus() {
         className="glass pointer-events-auto flex animate-pop-in items-center gap-1 rounded-full py-1 pl-4 pr-1 text-[12.5px]"
       >
         <span className="mr-2 text-ink-muted">
-          <span className="font-mono text-ink">{resultCount}</span> of {total} repositories
+          <span className="font-mono text-ink">{resultCount.toLocaleString("en-US")}</span> of{" "}
+          {total.toLocaleString("en-US")} repositories
         </span>
         <button
           type="button"

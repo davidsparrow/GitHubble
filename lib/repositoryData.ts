@@ -36,10 +36,14 @@ export function buildRepositories(seeds: readonly RepositorySeed[]): Repository[
   return unplaced.map((repo, i) => ({ ...repo, ...positions[i] }));
 }
 
+export type DatasetSource = "live" | "sample" | "synthetic";
+
 /** Everything the app derives once from a set of repositories. */
 export type GalaxyDataset = {
   /** Where the repositories came from. */
-  source: "sample" | "synthetic";
+  source: DatasetSource;
+  /** When the live galaxy was last imported (ISO-8601). */
+  indexedAt?: string;
   repositories: Repository[];
   indexById: Map<string, number>;
   /** Ordinal of each repository's cluster in CLUSTER_IDS (compact, for per-star loops). */
@@ -53,9 +57,13 @@ export type GalaxyDataset = {
   extent: number;
 };
 
-export function createDataset(repositories: Repository[], source: GalaxyDataset["source"] = "sample"): GalaxyDataset {
+export function createDataset(
+  repositories: Repository[],
+  { source = "sample", indexedAt }: { source?: DatasetSource; indexedAt?: string } = {},
+): GalaxyDataset {
   return {
     source,
+    indexedAt,
     repositories,
     indexById: new Map(repositories.map((repo, i) => [repo.id, i])),
     clusterIndex: Uint8Array.from(repositories, (repo) => CLUSTER_IDS.indexOf(repo.clusterId)),
@@ -81,13 +89,8 @@ export function getSampleDataset(): GalaxyDataset {
 
 const MAX_STRESS_REPOSITORIES = 50_000;
 
-/**
- * The dataset the app starts with: the sample universe, or a synthetic one of
- * N repositories when the page is opened with `?stress=N` (performance testing).
- */
-export function loadInitialDataset(): GalaxyDataset {
-  const requested = typeof window === "undefined" ? 0 : Number(new URLSearchParams(window.location.search).get("stress"));
-  if (!Number.isFinite(requested) || requested <= SAMPLE_REPOSITORY_SEEDS.length) return getSampleDataset();
-  const count = Math.min(Math.floor(requested), MAX_STRESS_REPOSITORIES);
-  return createDataset(buildRepositories(syntheticSeeds(SAMPLE_REPOSITORY_SEEDS, count)), "synthetic");
+/** A synthetic universe of `count` repositories, for performance testing (`?stress=N`). */
+export function getSyntheticDataset(count: number): GalaxyDataset {
+  const size = Math.min(Math.max(Math.floor(count), SAMPLE_REPOSITORY_SEEDS.length), MAX_STRESS_REPOSITORIES);
+  return createDataset(buildRepositories(syntheticSeeds(SAMPLE_REPOSITORY_SEEDS, size)), { source: "synthetic" });
 }

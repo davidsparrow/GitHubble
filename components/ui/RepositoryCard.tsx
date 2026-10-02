@@ -3,10 +3,13 @@
 import { useLayoutEffect, useRef } from "react";
 import { MOBILE_QUERY, useMediaQuery } from "@/hooks/useMediaQuery";
 import { cn } from "@/lib/cn";
-import { formatCompact, formatRelativeTime, formatStars } from "@/lib/format";
+import { displayName, formatCompact, formatRelativeTime, formatStars } from "@/lib/format";
 import { CLUSTER_BY_ID, languageColor } from "@/lib/taxonomy";
 import { useGalaxyStore } from "@/store/galaxyStore";
 import { ArrowLeftIcon, CloseIcon, ExternalIcon, SparkleIcon } from "./icons";
+
+/** Topic chips shown on the card; the rest are summarized as "+N". */
+const MAX_TOPICS = 8;
 
 /**
  * The selected repository. Floats on the right on desktop and becomes a bottom
@@ -141,9 +144,20 @@ export function RepositoryCard() {
         </p>
 
         <p className="mt-3 text-[14px] leading-relaxed text-ink/90">{repo.description}</p>
+        {repo.homepageUrl && (
+          <a
+            href={repo.homepageUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="mt-2 inline-flex max-w-full items-center gap-1 text-[12.5px] text-nebula hover:text-nebula-soft"
+          >
+            <span className="truncate">{websiteLabel(repo.homepageUrl)}</span>
+            <ExternalIcon className="size-3 shrink-0" />
+          </a>
+        )}
 
         <ul className="mt-3 flex flex-wrap gap-1.5" aria-label="Topics">
-          {repo.topics.map((topic) => (
+          {repo.topics.slice(0, MAX_TOPICS).map((topic) => (
             <li
               key={topic}
               className="rounded-full border border-white/[0.08] bg-white/[0.03] px-2 py-0.5 font-mono text-[11px] text-ink-muted"
@@ -151,6 +165,9 @@ export function RepositoryCard() {
               {topic}
             </li>
           ))}
+          {repo.topics.length > MAX_TOPICS && (
+            <li className="px-1 py-0.5 font-mono text-[11px] text-ink-faint">+{repo.topics.length - MAX_TOPICS}</li>
+          )}
         </ul>
 
         <div className="mt-5 grid grid-cols-2 gap-2">
@@ -203,7 +220,7 @@ function Neighborhood() {
     <section className="mt-5 border-t border-white/[0.07] pt-4">
       <div className="flex items-center justify-between gap-3">
         <h3 className="text-[10.5px] font-medium uppercase tracking-[0.2em] text-ink-muted">
-          Neighborhood of <span className="font-mono normal-case tracking-normal text-ink">{anchor.name}</span>
+          Neighborhood of <span className="font-mono normal-case tracking-normal text-ink">{displayName(anchor)}</span>
         </h3>
         {selectedIndex !== anchorIndex && (
           <button
@@ -239,7 +256,7 @@ function Neighborhood() {
                 >
                   <span className="size-1.5 shrink-0 rounded-full" style={{ backgroundColor: color }} />
                   <span className="min-w-0 flex-1">
-                    <span className="block truncate font-mono text-[12.5px] text-ink">{repo.name}</span>
+                    <span className="block truncate font-mono text-[12.5px] text-ink">{displayName(repo)}</span>
                     <span className="block truncate text-[11px] text-ink-faint">{match.reasons[0]}</span>
                   </span>
                   <span className="shrink-0 font-mono text-[11px] text-starlight/80">★ {formatCompact(repo.stars)}</span>
@@ -251,4 +268,14 @@ function Neighborhood() {
       )}
     </section>
   );
+}
+
+/** "https://www.example.com/docs" → "example.com/docs" */
+function websiteLabel(url: string): string {
+  try {
+    const { hostname, pathname } = new URL(url);
+    return `${hostname.replace(/^www\./, "")}${pathname === "/" ? "" : pathname.replace(/\/$/, "")}`;
+  } catch {
+    return url;
+  }
 }

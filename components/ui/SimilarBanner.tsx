@@ -1,5 +1,6 @@
 "use client";
 
+import { displayName } from "@/lib/format";
 import { useGalaxyStore } from "@/store/galaxyStore";
 import { SparkleIcon } from "./icons";
 
@@ -21,7 +22,7 @@ export function SimilarBanner() {
         <SparkleIcon className="size-3.5 shrink-0 text-nebula-soft" />
         <span className="min-w-0 truncate text-ink-muted">
           <span className="hidden sm:inline">Neighborhood of </span>
-          <span className="font-mono text-ink">{anchor.name}</span>
+          <span className="font-mono text-ink">{displayName(anchor)}</span>
           <span className="text-ink-faint"> · {count} similar</span>
         </span>
         <button

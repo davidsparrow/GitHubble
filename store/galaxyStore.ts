@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { computeFilterMask, EMPTY_FILTERS, toggleValue, type FilterKey, type Filters } from "@/lib/filters";
-import { loadInitialDataset, type GalaxyDataset } from "@/lib/repositoryData";
+import { createDataset, type GalaxyDataset } from "@/lib/repositoryData";
 import { computeSearchMask, tokenize } from "@/lib/search";
 import { findSimilar, type SimilarRepository } from "@/lib/similarity";
 import type { ViewMode } from "@/lib/types";
@@ -18,6 +18,7 @@ export type CameraIntent =
 export type FocusStyle = "fly" | "center" | "none";
 
 type GalaxyState = {
+  /** Empty until the app has loaded the live galaxy (or a fallback) and called setDataset. */
   dataset: GalaxyDataset;
   viewMode: ViewMode;
 
@@ -42,6 +43,7 @@ type GalaxyState = {
   /** Height of the open search suggestions below the header; results are framed beneath it. */
   searchInset: number;
 
+  setDataset: (dataset: GalaxyDataset) => void;
   setViewMode: (mode: ViewMode) => void;
   toggleViewMode: () => void;
   setQuery: (query: string) => void;
@@ -94,7 +96,7 @@ export const useGalaxyStore = create<GalaxyState>()((set, get) => {
     });
   };
 
-  const dataset = loadInitialDataset();
+  const dataset = createDataset([]);
 
   return {
     dataset,
@@ -111,6 +113,21 @@ export const useGalaxyStore = create<GalaxyState>()((set, get) => {
     cameraIntent: null,
     cardInset: { right: 0, bottom: 0 },
     searchInset: 0,
+
+    setDataset: (dataset) =>
+      set({
+        dataset,
+        query: "",
+        searchMask: null,
+        filters: EMPTY_FILTERS,
+        filterMask: null,
+        resultCount: dataset.repositories.length,
+        selectedIndex: -1,
+        hoveredIndex: -1,
+        similarAnchorIndex: -1,
+        similar: [],
+        cameraIntent: null,
+      }),
 
     setViewMode: (viewMode) => set({ viewMode }),
     toggleViewMode: () => set({ viewMode: get().viewMode === "telescope" ? "above" : "telescope" }),

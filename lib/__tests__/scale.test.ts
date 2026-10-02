@@ -8,7 +8,7 @@ import { findSimilar } from "../similarity";
 /** Phase 1 targets ~1,000 repositories; the architecture should stretch to 10,000+. */
 describe("at 10,000 repositories", () => {
   const started = performance.now();
-  const dataset = createDataset(buildRepositories(syntheticSeeds(SAMPLE_REPOSITORY_SEEDS, 10_000)), "synthetic");
+  const dataset = createDataset(buildRepositories(syntheticSeeds(SAMPLE_REPOSITORY_SEEDS, 10_000)), { source: "synthetic" });
   const buildMs = performance.now() - started;
 
   it("lays out and indexes the galaxy in a few seconds at most", () => {
