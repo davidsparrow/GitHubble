@@ -113,8 +113,11 @@ the importer on your machine and never reach the browser or Vercel.
 
 ## Deploying to Vercel
 
-Import the GitHub repository in Vercel (pushes to `main` then deploy automatically) and add two
-environment variables: `SUPABASE_URL` and `SUPABASE_ANON_KEY`. Nothing else is needed at runtime.
+The Vercel project `githubble` (team "davids' projects") is connected to this repository: every
+push to `main` deploys to production, and other branches get preview deployments. The only
+runtime configuration is two environment variables, `SUPABASE_URL` and `SUPABASE_ANON_KEY`
+(Project → Settings → Environment Variables, or `vercel env add`); without them the site serves
+the sample universe.
 `/api/galaxy` is cached at the CDN for 10 minutes (served stale while revalidating), so a fresh
 import shows up within minutes without a redeploy.
 
