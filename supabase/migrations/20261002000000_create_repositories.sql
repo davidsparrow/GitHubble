@@ -52,6 +52,10 @@ create index if not exists repositories_in_galaxy_stars_idx
   on public.repositories (stars desc)
   where in_galaxy;
 
+-- Explicit grants, for projects that don't grant new tables to the API roles automatically.
+grant select on table public.repositories to anon, authenticated;
+grant select, insert, update, delete on table public.repositories to service_role;
+
 alter table public.repositories enable row level security;
 
 drop policy if exists "Galaxy repositories are public" on public.repositories;
