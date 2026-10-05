@@ -10,19 +10,20 @@ search-result lists, you explore repositories as a navigable galaxy:
 - **Search and filters** light up matching stars and dim the rest, so the surrounding
   neighborhood stays visible as context.
 
-![Telescope view of the sample galaxy](docs/screenshots/telescope.jpg)
+![Telescope view of the live galaxy](docs/screenshots/telescope.jpg)
 
 ## Status
 
-**Phase 1 (Fake Universe) is complete, and Phase 2 (Real Universe) is built.** The importer
-pulls real repositories from GitHub, classifies them with Claude, lays out the galaxy and stores
-it in Supabase; the app serves it from `/api/galaxy`. Until a Supabase project is configured, the
-app shows a built-in sample universe of ~250 well-known repositories with approximate metadata.
+**Phases 1 (Fake Universe) and 2 (Real Universe) are complete.** The importer pulls real
+repositories from GitHub, classifies them with Claude, lays out the galaxy and stores it in
+Supabase; the app serves it from `/api/galaxy`. https://githubble.vercel.app shows 1,500 live
+repositories. Without a Supabase project configured, the app shows a built-in sample universe of
+~250 well-known repositories with approximate metadata.
 
 | Phase | Scope | Status |
 | --- | --- | --- |
 | 1. Fake Universe | Rendering, both cameras, hover/select, card, search, filters, Show Similar on sample data | **Done** |
-| 2. Real Universe | Supabase schema, GitHub importer with Claude classification, live galaxy API | **Built**, first import pending credentials |
+| 2. Real Universe | Supabase schema, GitHub importer with Claude classification, live galaxy API | **Done**: 1,500 repositories live, classified by Claude Sonnet 5.5 (first import ≈ $1.40) |
 | 3. Relationships | Similarity-driven clustering and persisted spiral-arm layout at scale | Planned |
 | 4. Intelligence | Embeddings (pgvector), semantic search, star growth, trending | Planned |
 
@@ -87,11 +88,11 @@ any size (up to 50,000) for performance testing.
    Use the **session pooler** connection string for `SUPABASE_DB_URL`: the direct
    `db.<ref>.supabase.co` host is IPv6-only, so it fails with `ENOTFOUND` on IPv4-only networks.
 3. **Import:** `npm run import`. It searches GitHub for the most-starred active repositories
-   across ~90 topics (about 3½ minutes at GitHub's search rate limit), picks a diverse 1,500 by
-   taking turns across topics, classifies them with Claude, drops non-software (awesome-lists,
-   books, courses), computes the layout and upserts the rows. A first full run costs roughly
-   $1–2 in Claude usage with Sonnet; later runs reuse cached classifications for unchanged
-   repositories.
+   across ~90 topics (about 7 minutes at GitHub's search rate limit; responses are cached for
+   12 hours), picks a diverse 1,500 by taking turns across topics, classifies them with Claude,
+   drops non-software (awesome-lists, books, courses), computes the layout and upserts the rows.
+   The first full run classified 1,800 repositories with Sonnet 5.5 for about $1.40 in about
+   2 minutes; later runs reuse cached classifications for unchanged repositories.
 
 | Importer option | Default | |
 | --- | --- | --- |
