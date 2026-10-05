@@ -84,6 +84,8 @@ any size (up to 50,000) for performance testing.
    `ANTHROPIC_API_KEY` (plus `SUPABASE_DB_URL` if you want step 2 from the command line).
 2. **Create the table:** `npm run db:push`, or paste
    `supabase/migrations/20261002000000_create_repositories.sql` into the Supabase SQL editor.
+   Use the **session pooler** connection string for `SUPABASE_DB_URL`: the direct
+   `db.<ref>.supabase.co` host is IPv6-only, so it fails with `ENOTFOUND` on IPv4-only networks.
 3. **Import:** `npm run import`. It searches GitHub for the most-starred active repositories
    across ~90 topics (about 3½ minutes at GitHub's search rate limit), picks a diverse 1,500 by
    taking turns across topics, classifies them with Claude, drops non-software (awesome-lists,
@@ -115,9 +117,10 @@ the importer on your machine and never reach the browser or Vercel.
 
 The Vercel project `githubble` (team "davids' projects") is connected to this repository: every
 push to `main` deploys to production, and other branches get preview deployments. The only
-runtime configuration is two environment variables, `SUPABASE_URL` and `SUPABASE_ANON_KEY`
-(Project → Settings → Environment Variables, or `vercel env add`); without them the site serves
-the sample universe.
+runtime configuration is two environment variables, set for Production and Preview:
+`NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` (`SUPABASE_URL` and
+`SUPABASE_ANON_KEY` also work; see `server/env.ts`). Without them the site serves the sample
+universe. Never add the secret key, GitHub token or Anthropic key to Vercel.
 `/api/galaxy` is cached at the CDN for 10 minutes (served stale while revalidating), so a fresh
 import shows up within minutes without a redeploy.
 
