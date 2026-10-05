@@ -21,8 +21,10 @@ const CONCURRENCY = 4;
 
 /** Input/output $ per million tokens, for the cost summary (Anthropic first-party pricing). */
 const PRICES: Record<string, [number, number]> = {
+  "claude-sonnet-5-5": [2, 10],
   "claude-sonnet-5": [2, 10],
   "claude-haiku-4-5": [1, 5],
+  "claude-opus-5-5": [4, 20],
   "claude-opus-5": [5, 25],
 };
 

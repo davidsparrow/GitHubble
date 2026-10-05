@@ -10,19 +10,20 @@ search-result lists, you explore repositories as a navigable galaxy:
 - **Search and filters** light up matching stars and dim the rest, so the surrounding
   neighborhood stays visible as context.
 
-![Telescope view of the sample galaxy](docs/screenshots/telescope.jpg)
+![Telescope view of the live galaxy](docs/screenshots/telescope.jpg)
 
 ## Status
 
-**Phase 1 (Fake Universe) is complete, and Phase 2 (Real Universe) is built.** The importer
-pulls real repositories from GitHub, classifies them with Claude, lays out the galaxy and stores
-it in Supabase; the app serves it from `/api/galaxy`. Until a Supabase project is configured, the
-app shows a built-in sample universe of ~250 well-known repositories with approximate metadata.
+**Phases 1 (Fake Universe) and 2 (Real Universe) are complete.** The importer pulls real
+repositories from GitHub, classifies them with Claude, lays out the galaxy and stores it in
+Supabase; the app serves it from `/api/galaxy`. https://githubble.vercel.app shows 1,500 live
+repositories. Without a Supabase project configured, the app shows a built-in sample universe of
+~250 well-known repositories with approximate metadata.
 
 | Phase | Scope | Status |
 | --- | --- | --- |
 | 1. Fake Universe | Rendering, both cameras, hover/select, card, search, filters, Show Similar on sample data | **Done** |
-| 2. Real Universe | Supabase schema, GitHub importer with Claude classification, live galaxy API | **Built**, first import pending credentials |
+| 2. Real Universe | Supabase schema, GitHub importer with Claude classification, live galaxy API | **Done**: 1,500 repositories live, classified by Claude Sonnet 5.5 (first import ≈ $1.40) |
 | 3. Relationships | Similarity-driven clustering and persisted spiral-arm layout at scale | Planned |
 | 4. Intelligence | Embeddings (pgvector), semantic search, star growth, trending | Planned |
 
@@ -84,12 +85,14 @@ any size (up to 50,000) for performance testing.
    `ANTHROPIC_API_KEY` (plus `SUPABASE_DB_URL` if you want step 2 from the command line).
 2. **Create the table:** `npm run db:push`, or paste
    `supabase/migrations/20261002000000_create_repositories.sql` into the Supabase SQL editor.
+   Use the **session pooler** connection string for `SUPABASE_DB_URL`: the direct
+   `db.<ref>.supabase.co` host is IPv6-only, so it fails with `ENOTFOUND` on IPv4-only networks.
 3. **Import:** `npm run import`. It searches GitHub for the most-starred active repositories
-   across ~90 topics (about 3½ minutes at GitHub's search rate limit), picks a diverse 1,500 by
-   taking turns across topics, classifies them with Claude, drops non-software (awesome-lists,
-   books, courses), computes the layout and upserts the rows. A first full run costs roughly
-   $1–2 in Claude usage with Sonnet; later runs reuse cached classifications for unchanged
-   repositories.
+   across ~90 topics (about 7 minutes at GitHub's search rate limit; responses are cached for
+   12 hours), picks a diverse 1,500 by taking turns across topics, classifies them with Claude,
+   drops non-software (awesome-lists, books, courses), computes the layout and upserts the rows.
+   The first full run classified 1,800 repositories with Sonnet 5.5 for about $1.40 in about
+   2 minutes; later runs reuse cached classifications for unchanged repositories.
 
 | Importer option | Default | |
 | --- | --- | --- |
@@ -100,7 +103,7 @@ any size (up to 50,000) for performance testing.
 | `--heuristic` | | Classify with keyword rules instead of Claude (no API cost) |
 | `--refresh` | | Ignore GitHub responses cached in `.cache/` (12 h) |
 
-**Classification.** Each batch of 25 repositories goes to Claude (`claude-sonnet-5` by default,
+**Classification.** Each batch of 25 repositories goes to Claude (`claude-sonnet-5-5` by default,
 override with `CLASSIFIER_MODEL`) with structured output constrained to the taxonomy enums:
 problem category, platform, galaxy neighborhood, and whether it's software at all. The importer
 checks the model with the Models API before spending anything, caches results per repository
@@ -115,9 +118,10 @@ the importer on your machine and never reach the browser or Vercel.
 
 The Vercel project `githubble` (team "davids' projects") is connected to this repository: every
 push to `main` deploys to production, and other branches get preview deployments. The only
-runtime configuration is two environment variables, `SUPABASE_URL` and `SUPABASE_ANON_KEY`
-(Project → Settings → Environment Variables, or `vercel env add`); without them the site serves
-the sample universe.
+runtime configuration is two environment variables, set for Production and Preview:
+`NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` (`SUPABASE_URL` and
+`SUPABASE_ANON_KEY` also work; see `server/env.ts`). Without them the site serves the sample
+universe. Never add the secret key, GitHub token or Anthropic key to Vercel.
 `/api/galaxy` is cached at the CDN for 10 minutes (served stale while revalidating), so a fresh
 import shows up within minutes without a redeploy.
 
