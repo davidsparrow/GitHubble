@@ -50,7 +50,7 @@ export function githubToken(): string | undefined {
 }
 
 /** Claude model used to classify repositories. Override with CLASSIFIER_MODEL. */
-export const DEFAULT_CLASSIFIER_MODEL = "claude-sonnet-5";
+export const DEFAULT_CLASSIFIER_MODEL = "claude-sonnet-5-5";
 
 export function classifierModel(): string {
   return first("CLASSIFIER_MODEL") ?? DEFAULT_CLASSIFIER_MODEL;

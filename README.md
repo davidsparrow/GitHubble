@@ -100,7 +100,7 @@ any size (up to 50,000) for performance testing.
 | `--heuristic` | | Classify with keyword rules instead of Claude (no API cost) |
 | `--refresh` | | Ignore GitHub responses cached in `.cache/` (12 h) |
 
-**Classification.** Each batch of 25 repositories goes to Claude (`claude-sonnet-5` by default,
+**Classification.** Each batch of 25 repositories goes to Claude (`claude-sonnet-5-5` by default,
 override with `CLASSIFIER_MODEL`) with structured output constrained to the taxonomy enums:
 problem category, platform, galaxy neighborhood, and whether it's software at all. The importer
 checks the model with the Models API before spending anything, caches results per repository
